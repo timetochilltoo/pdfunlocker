@@ -1,0 +1,19 @@
+# macOS / Xcode
+.DS_Store
+*.swp
+*~
+build/
+DerivedData/
+
+# Xcode user-specific (per-machine preferences)
+xcuserdata/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Build output (local-only convenience copy)
+debug/
+
+# Compiled CLI binaries (rebuild via smoke-test command in README)
+smoke-test
+oneshot-unlock
+verbose-unlock
