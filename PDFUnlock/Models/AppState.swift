@@ -44,18 +44,37 @@ public final class AppState {
     public func addUnlockJobs(from urls: [URL]) {
         let existing = Set(unlockJobs.map(\.inputURL))
         let fresh = urls.filter { !existing.contains($0) }
-        unlockJobs.append(contentsOf: fresh.map { UnlockJob(inputURL: $0) })
+        let new = fresh.map { UnlockJob(inputURL: $0) }
+        guard !new.isEmpty else { return }
+        unlockJobs.append(contentsOf: new)
     }
 
     public func addConvertJobs(from urls: [URL]) {
         let existing = Set(convertJobs.map(\.inputURL))
         let fresh = urls.filter { !existing.contains($0) }
-        let baseDir = settings.outputLocation == .customFolder
-            ? (settings.customOutputFolder ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
-            : FileManager.default.temporaryDirectory
-        convertJobs.append(contentsOf: fresh.map {
-            ConvertJob(inputURL: $0, outputDirectory: baseDir)
-        })
+        let new = fresh.map { url -> ConvertJob in
+            ConvertJob(
+                inputURL: url,
+                outputDirectory: Self.outputDirectory(for: url, settings: settings)
+            )
+        }
+        guard !new.isEmpty else { return }
+        convertJobs.append(contentsOf: new)
+    }
+
+    /// Resolve the output directory for a convert job based on user
+    /// settings. `sameFolder` (default) puts outputs next to the source.
+    /// `customFolder` uses the configured custom folder, falling back to
+    /// Downloads if none is set.
+    private static func outputDirectory(for inputURL: URL, settings: AppSettings) -> URL {
+        switch settings.outputLocation {
+        case .sameFolder:
+            return inputURL.deletingLastPathComponent()
+        case .customFolder:
+            return settings.customOutputFolder
+                ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+                ?? FileManager.default.temporaryDirectory
+        }
     }
 
     public func runAllUnlock() {

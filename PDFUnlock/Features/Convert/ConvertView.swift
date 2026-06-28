@@ -203,6 +203,12 @@ struct ConvertJobRow: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    Text(outputLocationLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(outputLocationLabel)
                 }
 
                 Spacer()
@@ -235,6 +241,15 @@ struct ConvertJobRow: View {
             .sorted { $0.rawValue < $1.rawValue }
             .map(\.displayName)
         return names.isEmpty ? "TXT" : names.joined(separator: " · ")
+    }
+
+    private var outputLocationLabel: String {
+        let dir = job.outputDirectory.path
+        let home = NSHomeDirectory()
+        if dir.hasPrefix(home) {
+            return "→ ~" + dir.dropFirst(home.count)
+        }
+        return "→ " + dir
     }
 
     @ViewBuilder
