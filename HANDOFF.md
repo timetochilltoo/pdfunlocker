@@ -75,8 +75,8 @@ PDFUnlock/
 │   │   ├── UnlockView.swift        Queue list, preflight summary, shared password bar, row rendering, retry/reveal/remove actions.
 │   │   └── UnlockViewModel.swift   Queue orchestration: inspectAll, runAll (bounded concurrency), cancelAll, applySharedPassword, clearSharedPassword, remove.
 │   ├── Convert/
-│   │   ├── ConvertView.swift       Stub UI shell. Mirror of UnlockView structure but no logic.
-│   │   └── ConvertViewModel.swift  Stub class. ConvertVM.runAll is called from ContentView toolbar but is a no-op until M1.5.
+│   │   ├── ConvertView.swift       Full Convert UI: format picker (TXT/PNG/MD), DPI selector (72/150/300), page range input, per-row status + actions.
+│   │   └── ConvertViewModel.swift  Convert queue orchestration: inspectAll, runAll (bounded concurrency), cancelAll, run (single), remove. Mirrors UnlockViewModel shape.
 │   ├── DropZone/
 │   │   └── DropZone.swift          Generic reusable drag-and-drop. Used by both modes. Has a private LockedBox helper for Swift 6 Sendable-safe collection.
 │   └── Settings/
@@ -88,14 +88,19 @@ PDFUnlock/
 │   ├── AtomicWriter.swift          Generic temp-file → validate → rename. Currently unused (PDFUnlocker writes via PDFKit directly + manual temp pattern).
 │   ├── Verifier.swift              Post-write verification: ok(pageCount), invalid, stillLocked, pageCountMismatch, empty.
 │   ├── PDFUnlocker.swift           The main orchestrator. Routes owner-only → qpdf; other → PDFKit first, qpdf on failure.
-│   └── QPDFRunner.swift            Wraps the bundled qpdf binary. Process spawn in Task.detached. stderr → typed error mapping.
+│   ├── QPDFRunner.swift            Wraps the bundled qpdf binary. Process spawn in Task.detached. stderr → typed error mapping.
+│   ├── PDFConverter.swift          Convert orchestrator. Dispatches to per-format extractors; writes TXT/MD via Data.write(atomic:), PNG folder via PNGExporter. Returns Output struct.
+│   └── Convert/
+│       ├── TXTExtractor.swift      PDFKit `pdfDocument.string` per page. Form-feed (`\u{0C}`) between pages. UTF-8 no BOM. Detects scanned PDFs (no text layer) and reports `.hadNoTextLayer = true`.
+│       ├── PNGExporter.swift       PDFKit page → `CGContext` (scaled by DPI/72) → `NSBitmapImageRep` → PNG. White background, zero-padded filenames.
+│       └── MarkdownExporter.swift  Heuristic converter. Detects headings (Title Case or ALL CAPS, short lines), lists (-/*/digit.), paragraphs. Falls back to fenced code block of raw text if 10+ pages with no detectable structure. Returns Outcome enum (.heuristic / .fallbackToRawText).
 ├── Models/
 │   ├── AppMode.swift               enum unlock / convert. Toolbar segmented control binds to this.
-│   ├── AppState.swift              @Observable @MainActor root state. Owns mode, settings, unlock/convert queues, both view models. Has runAllUnlock / cancelUnlock / isUnlockRunning / hasUnlockWork helpers.
+│   ├── AppState.swift              @Observable @MainActor root state. Owns mode, settings, unlock/convert queues, both view models. Has runAllUnlock / cancelUnlock / isUnlockRunning / hasUnlockWork / runAllConvert / cancelConvert / isConvertRunning / hasConvertWork helpers.
 │   ├── UnlockJob.swift             @Observable. Has inputURL, fileSize, outputURL, inspection, password, status, progress, errorMessage.
 │   ├── UnlockStatus.swift          enum. Display labels in displayLabel.
-│   ├── ConvertJob.swift            @Observable. Same shape as UnlockJob but for convert. Includes ConvertStatus.
-│   ├── ConvertStatus.swift         enum. Note: .partialSuccess exists but is unused until M1.5.
+│   ├── ConvertJob.swift            @Observable. Same shape as UnlockJob but for convert. Outputs dictionary keyed by ConvertFormat. Has fileName + humanFileSize computed properties.
+│   ├── ConvertStatus.swift         enum. .partialSuccess is used when at least one format succeeded but hadNoTextLayer made text-based outputs empty.
 │   ├── ConvertFormat.swift         enum txt/png/md. isExperimental = true for md. PageRange struct lives here too.
 │   └── PDFInspection.swift         struct: pageCount, EncryptionKind (none/ownerOnly/userPassword/certificate/unsupported), hasTextLayer, isCorrupt.
 ├── Settings/
@@ -114,7 +119,9 @@ PDFUnlock/
 - **`AppState`** is `@MainActor` and `@Observable`. Mutations happen on the main actor. Background work uses `Task.detached`.
 - **`UnlockJob` / `ConvertJob`** are `@Observable` but marked `@unchecked Sendable` because their mutations are coordinated by view models running on `@MainActor`. Don't pass these across actor boundaries without wrapping in a `Task { @MainActor in ... }`.
 - **`PDFUnlocker`** is a `Sendable struct` with no mutable state. Safe to share.
+- **`PDFConverter`** mirrors `PDFUnlocker`'s shape: `Sendable struct`, no mutable state, public API takes a `URL` input and `Options` (formats/pageRange/pngDPI). Returns a `ConvertResult` with `Output` (per-format URLs) and an `mdOutcome`.
 - **`QPDFRunner`** is also a `Sendable struct`. The `Process` it spawns lives entirely inside a `Task.detached` closure.
+- **`TXTExtractor` / `PNGExporter` / `MarkdownExporter`** are individual `Sendable struct` extractors. `PDFConverter` composes them. Each is independently testable (the convert smoke tests call them directly).
 - **`AppSettings`** is `@Observable @unchecked Sendable`. Read/write from anywhere; UserDefaults handles concurrency.
 
 ### The unlock pipeline (read this before changing it)
@@ -135,9 +142,29 @@ PDFUnlock/
 10. Both paths write to a temp file via `defer { removeItem(tempURL) }`, call `Verifier.verify()`, then `moveIntoPlace()`.
 11. Result sets job.outputURL, job.status = `.succeeded`, job.password = "" (cleared from memory).
 
+### The convert pipeline (read this before changing it)
+
+1. User adds a file → DropZone / fileImporter calls `appState.addConvertJobs(from:)`.
+2. ConvertView appears with the new job. `viewModel.inspectAll(jobs)` runs in the background.
+3. Inspection is lightweight (just page count via `PDFDocument(url:).pageCount`) — sets `job.status = .ready`.
+4. User picks formats via global toggles in the options bar (TXT, PNG, optionally Markdown). DPI selector sets PNG resolution. Page range input is parsed only when Run is clicked (M3 polish: per-job overrides).
+5. User clicks Run All → `appState.runAllConvert()` → viewModel.runAll().
+6. For each eligible job, in a TaskGroup with concurrency cap, runOne() is called.
+7. runOne builds `PDFConverter.Options` from `settings.defaultMarkdown` and `settings.defaultPNGDPI`, then calls `converter.convert(input, outputDirectory, options)`.
+8. PDFConverter:
+   - Opens PDF with PDFKit. If nil → `.corruptPDF`. If `isLocked` → `.encryptedNeedsUnlock` (no auto-decryption — the user is expected to unlock first in Unlock mode).
+   - Dispatches to each enabled extractor in `options.formats`.
+   - **TXT**: writes `name-converted.txt` via `Data.write(atomic:)` with UTF-8 no BOM.
+   - **MD**: writes `name-converted.md` via `Data.write(atomic:)`. MarkdownExporter may return `.fallbackToRawText` for large docs with no detectable structure; the row's status becomes `.partialSuccess` if MD came back as fallback AND no text was extracted.
+   - **PNG**: creates `<stem>-images/` folder, writes zero-padded `page-001.png` per page. DPI determines pixel dimensions (PDF native is 72 DPI, scale by `dpi/72`).
+   - If every requested format fails → throws `.allFormatsFailed(detail:)`.
+9. Result populates `job.outputs[format] = url`, sets status to `.succeeded` (or `.partialSuccess` if text layer was missing on text-based outputs).
+
+**Important: per-job `formats` field exists but the UI doesn't expose per-job overrides yet** — the options bar applies globally to all jobs in the queue. M3 polish work.
+
 ### Error type → UI behavior mapping
 
-Look at `UnlockError.errorDescription` for user-facing messages. Don't change them without updating §9.1 of `spec-v2.md`.
+Look at `UnlockError.errorDescription` and `ConvertError.errorDescription` for user-facing messages. Don't change them without updating §9.1 / §9.2 of `spec-v2.md`.
 
 ### Settings persistence
 
@@ -235,6 +262,7 @@ Use #2 for daily testing. Use #1 if you need to introspect what Xcode actually b
 
 ### Smoke tests (recommended)
 
+**Unlock tests** (PDFUnlocker + QPDFRunner):
 ```bash
 cd "/Users/patrickshi/Minimax Coding/PDF Unlocker"
 swiftc -parse-as-library \
@@ -242,14 +270,34 @@ swiftc -parse-as-library \
        -o smoke-test \
        SmokeTest.swift \
        PDFUnlock/Core/*.swift \
+       PDFUnlock/Core/Convert/*.swift \
        PDFUnlock/Models/PDFInspection.swift \
        PDFUnlock/Models/AppMode.swift \
        PDFUnlock/Models/ConvertFormat.swift \
+       PDFUnlock/Models/ConvertJob.swift \
        PDFUnlock/Settings/AppSettings.swift
 ./smoke-test
 ```
-
 Expected: `Passed: 11 / Failed: 0`.
+
+**Convert tests** (PDFConverter + 3 extractors):
+```bash
+swiftc -parse-as-library \
+       -framework PDFKit -framework AppKit \
+       -o convert-smoke-test \
+       ConvertSmokeTest.swift \
+       PDFUnlock/Core/*.swift \
+       PDFUnlock/Core/Convert/*.swift \
+       PDFUnlock/Models/PDFInspection.swift \
+       PDFUnlock/Models/AppMode.swift \
+       PDFUnlock/Models/ConvertFormat.swift \
+       PDFUnlock/Models/ConvertJob.swift \
+       PDFUnlock/Settings/AppSettings.swift
+./convert-smoke-test
+```
+Expected: `Passed: 10 / Failed: 0`.
+
+**Total: 21/21.** If you're adding a test fixture, add it to both `smoke-test` (if it has encryption) and `convert-smoke-test` (if it has interesting content/layout).
 
 ### Test fixtures (in `test-fixtures/`)
 
@@ -263,7 +311,8 @@ Expected: `Passed: 11 / Failed: 0`.
 
 - `oneshot-unlock` — unlock a single file. Source: `OneShotUnlock.swift`. Pass input path as argv[1].
 - `verbose-unlock` — unlock + detailed verification of the output. Source: `VerboseUnlock.swift`.
-- `smoke-test` — the smoke test runner.
+- `smoke-test` — the unlock smoke test runner.
+- `convert-smoke-test` — the convert smoke test runner.
 
 These are convenient for one-off testing without launching the GUI.
 
@@ -348,6 +397,14 @@ We tried this and it broke. Use a standalone `scripts/copy_to_debug.sh` instead.
 
 The `debug/PDFUnlock.app` is ad-hoc signed, not Developer ID. On first launch, macOS will say "this app is from an unidentified developer." User needs to right-click → Open → confirm. This is expected for local dev. Don't try to "fix" it without going through Developer ID + notarization (M4).
 
+### 9.11 `\f` is not a valid string escape in Swift 6
+
+Swift 6 disallows legacy escape sequences in regular string literals. Use the Unicode form: `"\u{0C}"` instead of `"\f"`. Affects TXTExtractor (page separator) and MarkdownExporter (form-feed between page blocks). Older Swift versions accepted `\f` — if you're reading code that used to compile and now doesn't, search for `\f` first.
+
+### 9.12 `PDFPage.draw(with:to:)` takes a `PDFDisplayBox`, not a `CGRect`
+
+Signature is `func draw(with box: PDFDisplayBox, to context: CGContext)`. The `box` argument is `.mediaBox`, `.cropBox`, `.bleedBox`, `.trimBox`, or `.artBox` — NOT a CGRect of the page bounds. To draw the page at full size, pass `.mediaBox`. The CGContext's current transform handles the page geometry. Don't pass `page.bounds(for: .mediaBox)` — that's a CGRect, not a PDFDisplayBox.
+
 ---
 
 ## 10. Recent changes (chronological, so context isn't lost)
@@ -378,29 +435,29 @@ If a future change touches any of these areas, double-check it doesn't regress.
 | Owner-restricted PDFs without password tried to unlock with empty password | `PDFInspector.open()` returns the doc without trying `unlock(withPassword: "")` for `!isLocked` (owner-only) | Run `owner-restricted-128.pdf`. Should succeed without prompting for password. |
 | Swift 6 strict concurrency warning on `var urls` mutated in concurrent DispatchGroup | `DropZone.swift` uses a `LockedBox` to safely collect from concurrent closures | Build clean with no warnings. |
 | xcodegen test target conflicts with app target | Abandoned XCTest target in favor of `swiftc` smoke binary | Smoke test runs in ~3s via `swiftc` command in README. |
+| Swift 6 rejects `\f` escape in regular string literals | `TXTExtractor.swift` and `MarkdownExporter.swift` use `\u{0C}` instead of `\f` | Build clean. If you see "invalid escape sequence in literal" errors, search for `\f` and replace with `\u{0C}`. |
+| `PDFPage.draw(with:to:)` was called with a CGRect instead of a PDFDisplayBox | `PNGExporter.swift` passes `.mediaBox` (enum case) not `pdfRect` (CGRect) | Build clean. If you see "cannot convert value of type 'NSRect' to expected argument type 'PDFDisplayBox'", this is the spot. |
 
 ---
 
 ## 12. Roadmap (next milestones, in order)
 
-### M1.5 — Convert mode (~3 days focused work)
+### M1.5 — Convert mode ✅ **DONE (2026-06-29)**
 
-**Goal:** Implement PDF → TXT, PNG, Markdown conversion. Run-All in Convert mode works.
+Implemented per the scope above. All 10 convert smoke tests pass; 21/21 total smoke tests across M1+M2+M1.5.
 
-**Scope:**
-- `Core/Convert/TXTExtractor.swift` — PDFKit `pdfDocument.string` per page, `\f` separators between pages.
-- `Core/Convert/PNGExporter.swift` — PDFKit page → NSImage → PNG via NSBitmapImageRep. DPI selector: 72/150/300.
-- `Core/Convert/MarkdownExporter.swift` — Heuristic from extracted text. UI must show "Experimental" badge. Fallback to fenced code block if heuristics fail (10+ pages, no headings detected).
-- `Core/PDFConverter.swift` — Public API like `PDFUnlocker`. Options: formats (Set<ConvertFormat>), pageRange (PageRange?), pngDPI (Int). Returns ConvertResult.
-- Wire `ConvertViewModel.runAll()` to call `PDFConverter.convert()` per job.
-- Enable Run All button in ContentView (currently disabled for Convert mode).
-- Update ConvertJob.status transitions: .inspecting → .ready → .running → .succeeded / .partialSuccess / .failed.
+**What ships:**
+- `Core/Convert/TXTExtractor.swift` — PDFKit `pdfDocument.string` per page, `\u{0C}` (form-feed) separators between pages. Detects scanned PDFs (no text layer).
+- `Core/Convert/PNGExporter.swift` — PDFKit page → `CGContext` (scaled by `dpi/72`) → `NSBitmapImageRep` → PNG. DPI selector 72/150/300. White background.
+- `Core/Convert/MarkdownExporter.swift` — Heuristic converter. Detects headings (Title Case or ALL CAPS, short lines), lists (-/*/digit.). Falls back to a fenced code block of raw text if 10+ pages with no detectable structure.
+- `Core/PDFConverter.swift` — Public API. Options: formats (Set<ConvertFormat>), pageRange (PageRange?), pngDPI (Int). Returns ConvertResult with Output struct.
+- `ConvertView.swift` — Format picker, DPI selector, page range input. Run All enabled.
+- `ConvertViewModel.swift` — inspect/run/cancel/retry/remove against PDFConverter.
+- `ConvertSmokeTest.swift` — 10 new tests (TXT/PNG/MD extractors + format dispatch + error paths).
 
-**Out of scope:**
-- OCR for scanned PDFs (deferred to v3).
-- DOCX / HTML / RTF (deferred to v3).
-
-**Test fixtures needed:** markdown-friendly PDF (headings + lists), scanned PDF without OCR (for the warning UI).
+**What was deferred (now candidates for M3 or v3):**
+- Poppler fallback (`pdftotext`, `pdftoppm`) — not bundled in v1. PDFKit handles the common case but returns empty for scanned PDFs. Bundle poppler when real-world testing demands it.
+- Per-job format overrides — current UI uses global toggles only. M3 polish.
 
 ### M2.5 — Dictionary/wordlist recovery (~3 days)
 
