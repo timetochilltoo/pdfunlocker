@@ -9,12 +9,12 @@ A native macOS utility for unlocking and converting PDF files — fully local, n
 | **M0** — Skeleton (SwiftUI shell, mode selector, drop zone, queue, settings) | ✅ Complete | See `PDFUnlock/App/`, `Features/`, `Models/`, `Settings/`. |
 | **M1** — Core Unlock (PDFKit inspect/unlock, atomic write, verifier) | ✅ Complete | `PDFUnlock/Core/PDFUnlocker.swift`, `PDFUnlocker.swift`, etc. |
 | **M2** — qpdf fallback (bundled binary, error mapping) | ✅ Complete | `PDFUnlock/Resources/qpdf`, `PDFUnlock/Core/QPDFRunner.swift`. |
-| **M1.5** — Convert mode (TXT, PNG, Markdown) | ⏳ Pending | UI shell exists; extractors not implemented. Run-All button disabled in Convert mode. |
+| **M1.5** — Convert mode (TXT, PNG, Markdown) | ✅ Complete | `PDFConverter` + 3 extractors. UI: format picker (TXT/PNG/MD), DPI (72/150/300), page range input. PNG and TXT verified end-to-end. |
 | **M2.5** — Dictionary/wordlist recovery | ⏳ Pending | Spec in `spec-v2.md` §4.3. Not started. |
 | **M3** — Batch polish (folder input, redacted reports, retry) | ⏳ Pending | Single-file flow works; batch is partial (concurrency 2 in settings). |
 | **M4** — Release (signing, notarization, DMG) | ⏳ Pending | App is **ad-hoc signed** for local dev; not Developer ID signed or notarized yet. |
 
-**11/11 smoke tests passing** against real PDFs (plain, owner-restricted, 40-bit, 128-bit AES, 256-bit AES, corrupt).
+**11/11 unlock smoke tests + 10/10 convert smoke tests passing** (21/21 total) against real PDFs (plain, owner-restricted, 40-bit, 128-bit AES, 256-bit AES, corrupt).
 
 ## Quick start
 
@@ -97,20 +97,38 @@ xcodebuild -project PDFUnlock.xcodeproj \
 ## Run the smoke tests
 
 ```bash
-# Compile + run the standalone smoke test (no Xcode test target — see notes below)
+# Compile + run the unlock smoke test (no Xcode test target — see notes below)
 swiftc -parse-as-library \
        -framework PDFKit -framework AppKit \
        -o smoke-test \
        SmokeTest.swift \
        PDFUnlock/Core/*.swift \
+       PDFUnlock/Core/Convert/*.swift \
        PDFUnlock/Models/PDFInspection.swift \
        PDFUnlock/Models/AppMode.swift \
        PDFUnlock/Models/ConvertFormat.swift \
+       PDFUnlock/Models/ConvertJob.swift \
        PDFUnlock/Settings/AppSettings.swift
 ./smoke-test
+
+# Compile + run the convert smoke test
+swiftc -parse-as-library \
+       -framework PDFKit -framework AppKit \
+       -o convert-smoke-test \
+       ConvertSmokeTest.swift \
+       PDFUnlock/Core/*.swift \
+       PDFUnlock/Core/Convert/*.swift \
+       PDFUnlock/Models/PDFInspection.swift \
+       PDFUnlock/Models/AppMode.swift \
+       PDFUnlock/Models/ConvertFormat.swift \
+       PDFUnlock/Models/ConvertJob.swift \
+       PDFUnlock/Settings/AppSettings.swift
+./convert-smoke-test
 ```
 
-Expected output: `Passed: 11 / Failed: 0`.
+Expected output:
+- `./smoke-test` → `Passed: 11 / Failed: 0`
+- `./convert-smoke-test` → `Passed: 10 / Failed: 0`
 
 ### Why no Xcode test target?
 
@@ -144,12 +162,13 @@ The default in `PDFUnlocker.Options` is `true`. The view model explicitly opts i
 
 ## Known limitations
 
-1. **Convert mode is a UI shell only.** Run-All is disabled with a tooltip "Convert mode lands in M1.5".
-2. **Recovery (forgotten passwords) is not implemented.** The spec is in `spec-v2.md` §4.3; code is not started.
-3. **Bundle ID is a placeholder** (`com.MiniMax.PDFUnlock`). Change it before distribution.
-4. **App is ad-hoc signed**, not Developer ID. macOS Gatekeeper will warn on first launch of the debug/ copy.
-5. **arm64 only.** No Intel build. Edit `project.yml` to add an `x86_64` slice if needed.
-6. **English only.** Localization not implemented.
+1. **Recovery (forgotten passwords) is not implemented.** The spec is in `spec-v2.md` §4.3; code is not started.
+2. **Poppler fallback for convert is not bundled.** PDFKit handles most PDFs but returns empty for scanned PDFs without an OCR layer, and heuristic Markdown degrades on complex layouts. Bundling `pdftotext` and `pdftoppm` would give more reliable fallbacks — deferred to a future pass.
+3. **Markdown conversion is best-effort.** PDFKit loses structure info (font sizes, exact positions, columns). The heuristic in `MarkdownExporter` upgrades short/title-cased lines to headings and recognizes `-` / `*` / `digit.` list markers, but tables, multi-column layouts, and footnotes degrade. For high-fidelity text use TXT; for layout-faithful output, use a layout-aware tool. The converter falls back to a fenced code block of raw text if no structure is detected on a 10+ page doc.
+4. **Bundle ID is a placeholder** (`com.MiniMax.PDFUnlock`). Change it before distribution.
+5. **App is ad-hoc signed**, not Developer ID. macOS Gatekeeper will warn on first launch of the debug/ copy.
+6. **arm64 only.** No Intel build. Edit `project.yml` to add an `x86_64` slice if needed.
+7. **English only.** Localization not implemented.
 
 ## Debug folder convention
 
@@ -162,12 +181,11 @@ To refresh after every build, you can add this to your shell config or as a buil
 
 ## Roadmap (next)
 
-1. **M1.5 — Convert mode** (~3 days). Implement TXT, PNG, Markdown extractors; wire up Run All in Convert mode; preflight panel for scanned/encrypted warnings.
-2. **M2.5 — Recovery** (~3 days). Bundled common-passwords wordlist, custom wordlist picker, opt-in per file, masked confirmation, hard caps.
-3. **M3 — Batch polish** (~2 days). Folder drag, redacted failure reports, retry-failed UI.
-4. **M4 — Release** (~2 days). Developer ID signing, notarization, DMG packaging.
+1. **M2.5 — Recovery** (~3 days). Bundled common-passwords wordlist, custom wordlist picker, opt-in per file, masked confirmation, hard caps.
+2. **M3 — Batch polish** (~2 days). Folder drag, redacted failure reports, retry-failed UI, per-job format overrides.
+3. **M4 — Release** (~2 days). Developer ID signing, notarization, DMG packaging.
 
-Total estimate to v2.0 ship: ~10 days focused work.
+Total estimate to v2.0 ship: ~7 days focused work.
 
 ## License
 

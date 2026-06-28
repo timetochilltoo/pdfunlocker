@@ -35,6 +35,16 @@ public final class ConvertJob: Identifiable, @unchecked Sendable {
         self.errorMessage = errorMessage
         self.outputs = outputs
     }
+
+    public var fileName: String { inputURL.lastPathComponent }
+
+    /// Mirrors UnlockJob's `humanFileSize` so the UI can render a
+    /// consistent size column.
+    public var humanFileSize: String {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: inputURL.path)
+        let bytes = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
 }
 
 public enum ConvertStatus: Equatable, Sendable {

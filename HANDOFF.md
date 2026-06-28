@@ -38,7 +38,7 @@ Patrick asked: "Can I build an app that bypasses restriction on PDF printing and
 
 - v1 spec was drafted by Codex (an AI agent), giving us `spec-v1.md` (kept as reference, not the active spec).
 - v2 spec (`spec-v2.md`) was written by Mavis (this agent) and adds Convert mode + dictionary recovery on top of v1's unlock scope.
-- Implementation has been iterative: spec first, then milestones M0 → M1 → M2. M1.5/M2.5/M3/M4 are pending.
+- Implementation has been iterative: spec first, then milestones M0 → M1 → M2 → M1.5. M2.5/M3/M4 are pending.
 
 ---
 
@@ -49,12 +49,12 @@ Patrick asked: "Can I build an app that bypasses restriction on PDF printing and
 | **M0** — Skeleton (SwiftUI shell, mode selector, drop zone, queue, settings) | ✅ Done | App launches, navigates between Unlock and Convert views, accepts drag-drop and ⌘O file picker. |
 | **M1** — Core Unlock (PDFKit inspect/unlock, atomic write, verifier) | ✅ Done | PDFKit path works for plain PDFs and user-password PDFs. |
 | **M2** — qpdf fallback (bundled binary, error mapping) | ✅ Done | Bundled qpdf + libqpdf.dylib. Owner-restricted PDFs route straight to qpdf. 40-bit / weak encryption handled via qpdf. |
-| **M1.5** — Convert mode (TXT, PNG, Markdown) | ⏳ Pending | ConvertView shell exists, formats enum exists, but Run All is disabled. PDFConverter and the three extractors are not implemented. |
+| **M1.5** — Convert mode (TXT, PNG, Markdown) | ✅ Done | `PDFConverter` + `TXTExtractor` + `PNGExporter` + `MarkdownExporter`. UI: format picker (TXT/PNG/MD), DPI (72/150/300), page range input. Run All enabled in Convert mode. 10/10 convert smoke tests passing. |
 | **M2.5** — Dictionary/wordlist recovery | ⏳ Pending | Spec in `spec-v2.md` §4.3. Zero code. |
 | **M3** — Batch polish | ⏳ Partial | Concurrency setting exists, basic retry-on-fail exists, but folder input, redacted failure reports, and most polish are pending. |
 | **M4** — Release (Developer ID signing, notarization, DMG) | ⏳ Pending | App is **ad-hoc signed** for local dev only. macOS Gatekeeper will warn on first launch. |
 
-**Smoke tests:** 11/11 passing. Compile and run via `swiftc SmokeTest.swift ... PDFUnlock/Core/*.swift ...`. See `README.md` for the exact command.
+**Smoke tests:** 21/21 passing total — 11/11 unlock (`smoke-test`) + 10/10 convert (`convert-smoke-test`). See `README.md` for build/run commands.
 
 ---
 
@@ -361,6 +361,7 @@ The `debug/PDFUnlock.app` is ad-hoc signed, not Developer ID. On first launch, m
 7. **2026-06-26** — **BUG**: `UnlockViewModel` had `useQPDFFallback: false` hardcoded. Fixed by setting it to `true` explicitly. Without this fix, the GUI always used PDFKit-only path even though the binary worked.
 8. **2026-06-29** — User requested `debug/` folder for easy app launch. Post-build script approach failed (`cp` errors on Xcode parallel builds). Replaced with standalone `scripts/copy_to_debug.sh`.
 9. **2026-06-29** — Wrote `README.md` (was missing) and updated `spec-v2.md` with status pointers + M2/M4 implementation notes.
+10. **2026-06-29** — M1.5 (Convert mode) shipped. `PDFConverter` orchestrator + `TXTExtractor` + `PNGExporter` + `MarkdownExporter`. ConvertView UI: format picker, DPI selector, page range input. Run All enabled in Convert mode. 10/10 new convert smoke tests, plus the existing 11/11 unlock smoke tests = 21/21 total. Poppler bundling (for `pdftotext` / `pdftoppm` fallback) deferred to a future pass.
 
 ---
 
@@ -534,7 +535,7 @@ The single most important handoff action: **update §11 ("Bugs already fixed")**
 
 ## 18. Final note
 
-If you're reading this fresh: welcome. The codebase is small (~24 Swift files, ~1500 LOC) and well-organized. The hard parts (PDFKit quirks, qpdf bundling, Swift 6 concurrency) have all been worked through. The remaining milestones (M1.5 Convert, M2.5 Recovery, M3 Polish, M4 Release) are mostly straightforward — they're feature work, not research.
+If you're reading this fresh: welcome. The codebase is small (~30 Swift files, ~2200 LOC) and well-organized. The hard parts (PDFKit quirks, qpdf bundling, Swift 6 concurrency) have all been worked through. The remaining milestones (M2.5 Recovery, M3 Polish, M4 Release) are mostly straightforward — they're feature work, not research.
 
 The biggest risk is regressing the bugs we already fixed. **§11 is your friend.** Read it before changing anything that touches `PDFUnlocker.swift`, `UnlockViewModel.swift`, or `Resources/qpdf`.
 

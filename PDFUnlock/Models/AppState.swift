@@ -78,4 +78,25 @@ public final class AppState {
             }
         }
     }
+
+    public func runAllConvert() {
+        convertVM.runAll(convertJobs, settings: settings)
+    }
+
+    public func cancelConvert() {
+        convertVM.cancelAll()
+    }
+
+    public var isConvertRunning: Bool {
+        convertJobs.contains { $0.status == .running || $0.status == .inspecting }
+    }
+
+    public var hasConvertWork: Bool {
+        convertJobs.contains {
+            switch $0.status {
+            case .ready, .failed: return true
+            default: return false
+            }
+        }
+    }
 }

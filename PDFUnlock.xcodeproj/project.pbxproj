@@ -15,12 +15,14 @@
 		3486498288D85390DB24787C /* libqpdf.30.dylib in Resources */ = {isa = PBXBuildFile; fileRef = BBB75E7AF4F7B032FF805CB3 /* libqpdf.30.dylib */; };
 		3D055BD9B41026586FE1B63E /* AtomicWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5A11DF7E70B4BEC656ECC8 /* AtomicWriter.swift */; };
 		3DDBAC7DF773CB64D48B7A0F /* UnlockJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47398795C91317DCD6913018 /* UnlockJob.swift */; };
+		3EAC0B610EC41C0918216F94 /* TXTExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F98103A3D3926DDF00ED98 /* TXTExtractor.swift */; };
 		4E186C281D0230252096BE24 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE9EB41BD415678E710101BB /* AppState.swift */; };
 		4F4DB1311120B112CBD31BAC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150C07B02CCCF4B7ED97C37A /* ContentView.swift */; };
 		50000C43D058A115AAD69DFE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BF9AD916759A389F3BFAA9C3 /* Assets.xcassets */; };
 		53A1525AD37FC2FDCED31BF4 /* PDFInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1298965F4B2AF990E140F52B /* PDFInspector.swift */; };
 		6C5576562A8648FFE42F639F /* qpdf.LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 3C3EE797E1971CE8422BC69A /* qpdf.LICENSE */; };
 		7B5D88E6996ED0297238DE9B /* FileNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED4156EAEF9BC1D2506D310 /* FileNaming.swift */; };
+		8F1F8213098B2E4F6D1B599A /* PNGExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFCB539E3E8C65322B4E9937 /* PNGExporter.swift */; };
 		A493A420804FA195315DF4F1 /* Verifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7BB96A7F01907133CF9E9B6 /* Verifier.swift */; };
 		A70E35688851EC5917A95CCA /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A24B6D3141A04C6FE7EC5C /* AppMode.swift */; };
 		A8DB01C29A85378E3F2CD6BF /* DropZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCE5101FAD9A9E5392717D2 /* DropZone.swift */; };
@@ -30,11 +32,13 @@
 		B4679E77B1964D94B327DABC /* ConvertView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C95C437FA941DF96B47A9BB /* ConvertView.swift */; };
 		BDCB852ABED2EB9B376354DA /* ConvertFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF698AA4BEEBD36916532E23 /* ConvertFormat.swift */; };
 		C28DEC1987290ADC90A10056 /* Commands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AABF9497060F51F2CA6243B /* Commands.swift */; };
+		C60933E1D8763910A03B0E3C /* MarkdownExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0192E1496B65D77452CEE59 /* MarkdownExporter.swift */; };
 		C70EED831A023C6E2B5B6230 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F500A05025E449317A570BA5 /* AppSettings.swift */; };
 		C9373E5D062905661F85565C /* PDFUnlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50B1960FFBCE8DE5AC3C215 /* PDFUnlocker.swift */; };
 		D222D1261F8526E1DE704573 /* UnlockStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C86F4011F634A5D1AC8BF6 /* UnlockStatus.swift */; };
 		D402441AAC359523DFC9611F /* QPDFRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6911CD2B1E9B77D8080E2E7B /* QPDFRunner.swift */; };
 		E83946D6FDA7EC79D8555EB5 /* qpdf in Resources */ = {isa = PBXBuildFile; fileRef = 7B2D24F11A1ABA30AAA7227E /* qpdf */; };
+		EB54F7CF4A81A05D8E1B3735 /* PDFConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80B01DF1DA5BFF09AA4F979 /* PDFConverter.swift */; };
 		F010168DB6D8D8C591E78CCC /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB791B1A38AA3254C292A61 /* SettingsView.swift */; };
 		F705FEBFA91AA875B0AA0ADB /* ModeSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D6AD1C6D4C9518945B0C409 /* ModeSelector.swift */; };
 /* End PBXBuildFile section */
@@ -59,6 +63,7 @@
 		8AABF9497060F51F2CA6243B /* Commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Commands.swift; sourceTree = "<group>"; };
 		9C95C437FA941DF96B47A9BB /* ConvertView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConvertView.swift; sourceTree = "<group>"; };
 		9DD7813753C7B70B4612F0AC /* PDFUnlockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFUnlockApp.swift; sourceTree = "<group>"; };
+		A0192E1496B65D77452CEE59 /* MarkdownExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownExporter.swift; sourceTree = "<group>"; };
 		B43253FE4443A7CF6721F97B /* UnlockViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnlockViewModel.swift; sourceTree = "<group>"; };
 		B7BB96A7F01907133CF9E9B6 /* Verifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Verifier.swift; sourceTree = "<group>"; };
 		BBB75E7AF4F7B032FF805CB3 /* libqpdf.30.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libqpdf.30.dylib; sourceTree = "<group>"; };
@@ -69,6 +74,9 @@
 		D367131BCDC609373800C8BB /* UnlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnlockView.swift; sourceTree = "<group>"; };
 		DC4C48B93D726FA0F0FDB8E2 /* PDFUnlock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFUnlock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF698AA4BEEBD36916532E23 /* ConvertFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConvertFormat.swift; sourceTree = "<group>"; };
+		E80B01DF1DA5BFF09AA4F979 /* PDFConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFConverter.swift; sourceTree = "<group>"; };
+		EFCB539E3E8C65322B4E9937 /* PNGExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PNGExporter.swift; sourceTree = "<group>"; };
+		F0F98103A3D3926DDF00ED98 /* TXTExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TXTExtractor.swift; sourceTree = "<group>"; };
 		F500A05025E449317A570BA5 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		F50B1960FFBCE8DE5AC3C215 /* PDFUnlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFUnlocker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -115,6 +123,16 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		537043256525C8C6F051C14B /* Convert */ = {
+			isa = PBXGroup;
+			children = (
+				A0192E1496B65D77452CEE59 /* MarkdownExporter.swift */,
+				EFCB539E3E8C65322B4E9937 /* PNGExporter.swift */,
+				F0F98103A3D3926DDF00ED98 /* TXTExtractor.swift */,
+			);
+			path = Convert;
+			sourceTree = "<group>";
+		};
 		59CEA6ADA0B813FEF57D31AD /* Common */ = {
 			isa = PBXGroup;
 			children = (
@@ -150,11 +168,13 @@
 			children = (
 				CB5A11DF7E70B4BEC656ECC8 /* AtomicWriter.swift */,
 				1ED4156EAEF9BC1D2506D310 /* FileNaming.swift */,
+				E80B01DF1DA5BFF09AA4F979 /* PDFConverter.swift */,
 				1298965F4B2AF990E140F52B /* PDFInspector.swift */,
 				F50B1960FFBCE8DE5AC3C215 /* PDFUnlocker.swift */,
 				6911CD2B1E9B77D8080E2E7B /* QPDFRunner.swift */,
 				7FE75E9A516372C670083327 /* UnlockError.swift */,
 				B7BB96A7F01907133CF9E9B6 /* Verifier.swift */,
+				537043256525C8C6F051C14B /* Convert */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -302,13 +322,17 @@
 				26D51A220D01A7B818609DA0 /* ConvertViewModel.swift in Sources */,
 				A8DB01C29A85378E3F2CD6BF /* DropZone.swift in Sources */,
 				7B5D88E6996ED0297238DE9B /* FileNaming.swift in Sources */,
+				C60933E1D8763910A03B0E3C /* MarkdownExporter.swift in Sources */,
 				F705FEBFA91AA875B0AA0ADB /* ModeSelector.swift in Sources */,
+				EB54F7CF4A81A05D8E1B3735 /* PDFConverter.swift in Sources */,
 				1400424F69745C6616A92C18 /* PDFInspection.swift in Sources */,
 				53A1525AD37FC2FDCED31BF4 /* PDFInspector.swift in Sources */,
 				3155B131B05387723CA7FE12 /* PDFUnlockApp.swift in Sources */,
 				C9373E5D062905661F85565C /* PDFUnlocker.swift in Sources */,
+				8F1F8213098B2E4F6D1B599A /* PNGExporter.swift in Sources */,
 				D402441AAC359523DFC9611F /* QPDFRunner.swift in Sources */,
 				F010168DB6D8D8C591E78CCC /* SettingsView.swift in Sources */,
+				3EAC0B610EC41C0918216F94 /* TXTExtractor.swift in Sources */,
 				AC8E6CBD21D0F655673FD401 /* UnlockError.swift in Sources */,
 				3DDBAC7DF773CB64D48B7A0F /* UnlockJob.swift in Sources */,
 				D222D1261F8526E1DE704573 /* UnlockStatus.swift in Sources */,

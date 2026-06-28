@@ -73,14 +73,22 @@ struct ContentView: View {
                 .help("Unlock all queued PDFs that are ready or have a password")
             }
         case .convert:
-            // Wired up in M1.5 (Convert module not yet implemented)
-            Button {
-                // No-op until M1.5
-            } label: {
-                Label("Run All", systemImage: "play.fill")
+            if appState.isConvertRunning {
+                Button(role: .destructive) {
+                    appState.cancelConvert()
+                } label: {
+                    Label("Cancel", systemImage: "stop.fill")
+                }
+                .help("Cancel running conversions")
+            } else {
+                Button {
+                    appState.runAllConvert()
+                } label: {
+                    Label("Run All", systemImage: "play.fill")
+                }
+                .disabled(!appState.hasConvertWork)
+                .help("Convert all queued PDFs to the selected formats")
             }
-            .disabled(true)
-            .help("Convert mode lands in M1.5")
         }
     }
 
